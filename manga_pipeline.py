@@ -405,7 +405,14 @@ def stage_process(logger, workspace, run_dir):
             shutil.rmtree(output_dir, ignore_errors=True)
             continue
 
-        # Step D: Move upscaled images into the item directory
+        # Step D: Replace original images with upscaled ones
+        # Delete originals first to avoid name conflicts (upscaler outputs {stem}.jpg)
+        for f in Path(image_dir).iterdir():
+            if f.is_file():
+                f.unlink()
+            elif f.is_dir():
+                shutil.rmtree(str(f))
+        # Move upscaled files into the image directory
         for f in Path(output_dir).iterdir():
             shutil.move(str(f), image_dir)
         shutil.rmtree(output_dir, ignore_errors=True)
@@ -493,7 +500,34 @@ def stage_route(logger, workspace, run_dir):
 # ── Main ───────────────────────────────────────────────────────────────────
 
 
+def _find_latest_run(work_dir):
+    """Find the most recent run directory, or None if none exist."""
+    runs_dir = os.path.join(work_dir, "_runs")
+    if not os.path.isdir(runs_dir):
+        return None
+    runs = sorted(
+        [d for d in os.listdir(runs_dir) if os.path.isdir(os.path.join(runs_dir, d))],
+        reverse=True,
+    )
+    return os.path.join(runs_dir, runs[0]) if runs else None
+
+
 def main():
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Reuse the most recent run directory instead of creating a new one",
+    )
+    parser.add_argument(
+        "--run-dir",
+        default=None,
+        help="Use a specific run directory (overrides --resume)",
+    )
+    args = parser.parse_args()
+
     start_time = datetime.now()
     run_id = start_time.strftime("%Y%m%d-%H%M%S")
 
@@ -538,9 +572,27 @@ def main():
         )
         sys.exit(1)
 
-    # Set up per-run workspace and logging
-    run_dir = os.path.join(LOCAL_WORK_DIR, "_runs", run_id)
-    os.makedirs(run_dir, exist_ok=True)
+    # Determine run directory
+    if args.run_dir:
+        run_dir = args.run_dir
+        if not os.path.isdir(run_dir):
+            print(f"FATAL: Run directory does not exist: {run_dir}", file=sys.stderr)
+            sys.exit(1)
+        run_id = os.path.basename(run_dir)
+    elif args.resume:
+        run_dir = _find_latest_run(LOCAL_WORK_DIR)
+        if run_dir is None:
+            print(
+                "FATAL: No previous run directory found to resume from.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        run_id = os.path.basename(run_dir)
+        logger_tmp, _ = _setup_logging(run_dir)
+        logger_tmp.info(f"Resuming run: {run_dir}")
+    else:
+        run_dir = os.path.join(LOCAL_WORK_DIR, "_runs", run_id)
+        os.makedirs(run_dir, exist_ok=True)
 
     logger, subprocess_log = _setup_logging(run_dir)
     lock_file = os.path.join(run_dir, ".lock")
@@ -552,7 +604,7 @@ def main():
         sys.exit(1)
 
     try:
-        # Create isolated workspace with subdirectories
+        # Create isolated workspace with subdirectories (or reuse existing)
         downloads_dir = os.path.join(run_dir, "downloads")
         workspace = os.path.join(run_dir, "workspace")
         os.makedirs(downloads_dir, exist_ok=True)
