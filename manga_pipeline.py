@@ -26,9 +26,10 @@ from pathlib import Path
 
 LOCAL_WORK_DIR = r"/home/adrian/for-extraction"  # kobodl downloads here
 NAS_KOMGA_DIR = r"/mnt/media/manga"  # Komga manga library root
-UPSCALE_TOOL_DIR = r"/home/adrian/tools/manga_upscaler"
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+UPSCALE_TOOL_DIR = SCRIPT_DIR
 UPSCALE_TOOL_PATH = "manga_upscale.py"
-HISTORY_FILE = os.path.join(UPSCALE_TOOL_DIR, "downloaded_ids.txt")
+HISTORY_FILE = os.path.join(SCRIPT_DIR, "downloaded_ids.txt")
 
 # Find kobodl — try same venv as this script, then PATH
 KOBODL_FALLBACKS = [
