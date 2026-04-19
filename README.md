@@ -1,25 +1,14 @@
-#  Manga Upscaler GUI
+#  Manga Upscaler pipline
 
-A sleek, modern, and powerful GUI for upscaling manga and anime images, built with PyQt6. This project provides a user-friendly interface for the high-quality upscaling models, making it easy to enhance your images without complex command-line operations.
+Pipeline for donloading and  upscaling manga. This project provides a user-friendly automation for the high-quality upscaling models, making it easy to enhance your images without complex command-line operations.
 
 ## Features
 
-- **Modern & Sleek UI**: A beautiful, dark-themed interface built with PyQt6, designed for ease of use.
 - **Versatile Upscaling**: Supports both black & white and color images.
-- **Model Management**: Easily download and manage different model packs for various use cases.
 - **Archive Extraction**: Automatically extract images from `.zip` and `.cbz` archives.
 - **Dual Interface**: Use the intuitive GUI or the powerful command-line interface (CLI) for automation.
 - **Cross-Platform**: Works on Windows, macOS, and Linux.
 
-## Google Colab Support
-
-For users without a powerful local GPU, we provide a Google Colab notebook for a seamless, cloud-based experience. This is the recommended way to get the fastest upscaling results without needing a high-end PC.
-
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Yui007/manga_upscaler/blob/main/Manga_Upscaler_Colab.ipynb)
-
-## GUI Preview
-
-![Manga Upscaler GUI](GUI.PNG)
 
 ## Installation
 
@@ -36,63 +25,19 @@ For users without a powerful local GPU, we provide a Google Colab notebook for a
     python -m venv venv
 
     # Activate it
-    # On Windows:
-    venv\Scripts\activate
-    # On macOS/Linux:
     source venv/bin/activate
 
     # Install the required packages
     pip install -r requirements.txt
     ```
 
-3.  **Download Models:**
-    Use the GUI to download the models you need. Launch the application and navigate to the **Setup & Models** tab.
-    ```bash
-    python pyqt_app.py
-    ```
-    - **Best Models (Both)**: A curated pack for general-purpose upscaling.
-    - **B&W Models**: Specialized models for black and white manga.
-    - **Color Models**: Optimized models for color illustrations and anime.
 
 ## Usage
-
-### GUI Mode
-
-The easiest way to use the upscaler is through the graphical user interface.
-
-1.  **Launch the application:**
-    ```bash
-    python pyqt_app.py
-    ```
-
-2.  **Extract Archives (Optional):**
-    - Go to the **Extract** tab.
-    - Click "Browse" to select the directory containing your `.zip` or `.cbz` files.
-    - Click "Run Extraction". The images will be extracted into subfolders within the same directory.
-
-3.  **Upscale Images:**
-    - Go to the **Upscale** tab.
-    - Select your input directory for B&W images, Color images, or both.
-    - Choose an output directory where the upscaled images will be saved.
-    - Select the desired upscaling models from the dropdowns. You can also browse for a custom model file.
-    - Click "Run Upscale" and monitor the progress in the log window.
 
 ### CLI Mode
 
 For automation and scripting, you can use the `manga_upscale.py` script directly.
 
-#### Download Models
-
-```bash
-# Download the 'best of both' model pack
-python manga_upscale.py download best
-
-# Download only B&W models
-python manga_upscale.py download bw
-
-# Download only Color models
-python manga_upscale.py download color
-```
 
 #### Extract Archives
 
@@ -119,14 +64,6 @@ python manga_upscale.py upscale \
     --model-color "4x_IllustrationJaNai_V2standard_DAT2_27k.safetensors"
 ```
 
-## Model Recommendations
-
--   **For Black & White Manga**: The `MangaJaNai` models are specifically trained for B&W content and generally produce the best results.
--   **For Color Manga/Illustrations**: The `IllustrationJaNai` models are optimized for color images.
--   **For General Use (Both B&W and Color)**: The `4x-UltraSharp` and `4x-AnimeSharp` models are excellent all-rounders that work well on a variety of content.
-
-Experiment with different models to find the best one for your specific images!
-My personal best models are 4x-Animesharp and 4x-Ultrasharp.
 
 ## Acknowledgements & Contributions
 
