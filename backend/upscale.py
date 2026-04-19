@@ -214,7 +214,7 @@ class Upscale:
                 img_input_path_rel = img_path.relative_to(self.input)
                 if not self.output: continue
                 output_dir = self.output.joinpath(img_input_path_rel).parent
-                img_output_path_rel = output_dir.joinpath(f"{img_path.stem}.png")
+                img_output_path_rel = output_dir.joinpath(f"{img_path.stem}.jpg")
                 output_dir.mkdir(parents=True, exist_ok=True)
                 if len(model_chain) == 1:
                     self.log.info(
@@ -299,7 +299,7 @@ class Upscale:
                 if rlt is None:
                     self.log.error(f"Upscaling failed for {img_path}, result is None.")
                     continue
-                is_success, im_buf_arr = cv2.imencode(".png", rlt)
+                is_success, im_buf_arr = cv2.imencode(".jpg", rlt, [cv2.IMWRITE_JPEG_QUALITY, 75])
                 if not is_success:
                     raise Exception("cv2.imencode failure")
                 im_buf_arr.tofile(str(img_output_path_rel.absolute()))
@@ -678,7 +678,7 @@ def main(
     ),
     cpu: bool = typer.Option(False, "--cpu", "-c", help="Use CPU instead of CUDA"),
     fp16: bool = typer.Option(
-        False,
+        True,
         "--floating-point-16",
         "-fp16",
         help="Use FloatingPoint16/Halftensor type for images.",
