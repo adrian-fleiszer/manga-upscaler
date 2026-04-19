@@ -205,7 +205,11 @@ def extract_series_name(filename):
 
 
 def stage_fetch(logger, kobodl, downloads_dir, run_dir):
-    """Download new manga from Kobo. Idempotent via history file."""
+    """Download new manga from Kobo. Returns list of newly downloaded IDs.
+
+    Does NOT update history file — that happens only after the entire
+    pipeline succeeds. This ensures a crashed pipeline can retry downloads.
+    """
     logger.info("--- Step 1: Checking Kobo for new books ---")
     history = _load_history()
 
@@ -216,12 +220,12 @@ def stage_fetch(logger, kobodl, downloads_dir, run_dir):
     )
     if result.returncode != 0:
         logger.error(f"kobodl book list failed (exit {result.returncode})")
-        return 0
+        return [], 0
 
     uuid_re = re.compile(
         r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b"
     )
-    new_count = 0
+    new_ids = []
 
     for line in result.stdout.splitlines():
         if "AUDIOBOOK" in line.upper():
@@ -250,12 +254,10 @@ def stage_fetch(logger, kobodl, downloads_dir, run_dir):
             continue
 
         logger.info(f"  [DOWNLOADED] ID {book_id}")
-        history.add(book_id)
-        _save_history(history)
-        new_count += 1
+        new_ids.append(book_id)
 
-    if new_count > 0:
-        logger.info(f"Downloaded {new_count} new file(s). Staging as .cbz...")
+    if new_ids:
+        logger.info(f"Downloaded {len(new_ids)} new file(s). Staging as .cbz...")
         # Walk recursively because kobodl nests files in kobo_downloads/
         for root, _dirs, files in os.walk(downloads_dir):
             for fname in files:
@@ -271,7 +273,7 @@ def stage_fetch(logger, kobodl, downloads_dir, run_dir):
         if os.path.exists(kobo_dir):
             shutil.rmtree(kobo_dir)
 
-    return new_count
+    return new_ids, len(new_ids)
 
 
 def stage_extract(logger, workspace, run_dir):
@@ -563,7 +565,7 @@ def main():
         logger.info("")
 
         # Stage 1: Download new manga
-        new_count = stage_fetch(logger, kobodl, downloads_dir, run_dir)
+        new_ids, new_count = stage_fetch(logger, kobodl, downloads_dir, run_dir)
 
         if new_count > 0:
             # Copy downloaded files into workspace for processing
@@ -580,6 +582,13 @@ def main():
 
             # Stage 3: Route to Komga
             stage_route(logger, workspace, run_dir)
+
+            # Only add to history AFTER the entire pipeline succeeds
+            history = _load_history()
+            for book_id in new_ids:
+                history.add(book_id)
+            _save_history(history)
+            logger.info(f"Recorded {len(new_ids)} book(s) in history.")
         else:
             logger.info("No new books to process.")
 
