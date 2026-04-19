@@ -329,7 +329,9 @@ def stage_process(logger, workspace, run_dir):
     items = [
         i
         for i in os.listdir(workspace)
-        if os.path.isdir(os.path.join(workspace, i)) and i not in progress["processed"]
+        if os.path.isdir(os.path.join(workspace, i))
+        and i not in progress["processed"]
+        and not i.endswith("_upscaled")  # skip upscaler temp dirs
     ]
 
     if not items:
@@ -344,28 +346,46 @@ def stage_process(logger, workspace, run_dir):
         # Step A: Extract (skip if folder already exists from prior run)
         archive = item + ".zip"
         cbz_archive = item + ".cbz"
-        if os.path.isfile(os.path.join(workspace, archive)):
-            logger.info(f"  [EXTRACT] '{archive}'...")
-            r = _run_subprocess(
-                [sys.executable, UPSCALE_TOOL_PATH, "extract", "--input", workspace],
-                logger=logger,
-                log_file=os.path.join(run_dir, f"extract-{item}.log"),
-                cwd=UPSCALE_TOOL_DIR,
-            )
-            if r.returncode != 0:
-                logger.error(f"  [FAIL] Extraction failed for '{item}'. Skipping.")
-                continue
-        elif os.path.isfile(os.path.join(workspace, cbz_archive)):
-            logger.info(f"  [EXTRACT] '{cbz_archive}'...")
-            r = _run_subprocess(
-                [sys.executable, UPSCALE_TOOL_PATH, "extract", "--input", workspace],
-                logger=logger,
-                log_file=os.path.join(run_dir, f"extract-{item}.log"),
-                cwd=UPSCALE_TOOL_DIR,
-            )
-            if r.returncode != 0:
-                logger.error(f"  [FAIL] Extraction failed for '{item}'. Skipping.")
-                continue
+        # Check if output dir already has upscaled files — if so, skip upscaling
+        output_dir = os.path.join(workspace, f"{item}_upscaled")
+        has_upscaled = os.path.isdir(output_dir) and any(Path(output_dir).iterdir())
+        if has_upscaled:
+            logger.info(f"  [SKIP] Upscaled output already exists for '{item}'.")
+        else:
+            if os.path.isfile(os.path.join(workspace, archive)):
+                logger.info(f"  [EXTRACT] '{archive}'...")
+                r = _run_subprocess(
+                    [
+                        sys.executable,
+                        UPSCALE_TOOL_PATH,
+                        "extract",
+                        "--input",
+                        workspace,
+                    ],
+                    logger=logger,
+                    log_file=os.path.join(run_dir, f"extract-{item}.log"),
+                    cwd=UPSCALE_TOOL_DIR,
+                )
+                if r.returncode != 0:
+                    logger.error(f"  [FAIL] Extraction failed for '{item}'. Skipping.")
+                    continue
+            elif os.path.isfile(os.path.join(workspace, cbz_archive)):
+                logger.info(f"  [EXTRACT] '{cbz_archive}'...")
+                r = _run_subprocess(
+                    [
+                        sys.executable,
+                        UPSCALE_TOOL_PATH,
+                        "extract",
+                        "--input",
+                        workspace,
+                    ],
+                    logger=logger,
+                    log_file=os.path.join(run_dir, f"extract-{item}.log"),
+                    cwd=UPSCALE_TOOL_DIR,
+                )
+                if r.returncode != 0:
+                    logger.error(f"  [FAIL] Extraction failed for '{item}'. Skipping.")
+                    continue
 
         # Step B: Find image directory
         image_dir = find_main_image_directory(item_path)
@@ -374,36 +394,42 @@ def stage_process(logger, workspace, run_dir):
             continue
         logger.info(f"  Image directory: {os.path.relpath(image_dir, workspace)}")
 
-        # Step C: Upscale
-        output_dir = os.path.join(workspace, f"{item}_upscaled")
-        logger.info(f"  [UPSCALE] Running upscaler...")
-        r = _run_subprocess(
-            [
-                sys.executable,
-                UPSCALE_TOOL_PATH,
-                "upscale",
-                "--color",
-                image_dir,
-                "--output",
-                output_dir,
-                "--model-color",
-                MODEL_NAME,
-            ],
-            logger=logger,
-            log_file=os.path.join(run_dir, f"upscale-{item}.log"),
-            cwd=UPSCALE_TOOL_DIR,
-        )
-        if r.returncode != 0:
-            logger.error(f"  [FAIL] Upscaler failed for '{item}'.")
-            # Clean up partial output
-            if os.path.exists(output_dir):
-                shutil.rmtree(output_dir)
-            continue
-
-        if not os.path.isdir(output_dir) or not any(Path(output_dir).iterdir()):
-            logger.warning(f"  [SKIP] No output from upscaler for '{item}'.")
+        # Step C: Upscale (only if no existing upscaled output)
+        if not has_upscaled:
+            # Remove stale output from previous crashed run
             shutil.rmtree(output_dir, ignore_errors=True)
+            logger.info(f"  [UPSCALE] Running upscaler...")
+            r = _run_subprocess(
+                [
+                    sys.executable,
+                    UPSCALE_TOOL_PATH,
+                    "upscale",
+                    "--color",
+                    image_dir,
+                    "--output",
+                    output_dir,
+                    "--model-color",
+                    MODEL_NAME,
+                ],
+                logger=logger,
+                log_file=os.path.join(run_dir, f"upscale-{item}.log"),
+                cwd=UPSCALE_TOOL_DIR,
+            )
+            if r.returncode != 0:
+                logger.error(f"  [FAIL] Upscaler failed for '{item}'.")
+                shutil.rmtree(output_dir, ignore_errors=True)
+                continue
+
+            if not os.path.isdir(output_dir) or not any(Path(output_dir).iterdir()):
+                logger.warning(f"  [SKIP] No output from upscaler for '{item}'.")
+                shutil.rmtree(output_dir, ignore_errors=True)
+                continue
+        # Step B: Find image directory
+        image_dir = find_main_image_directory(item_path)
+        if not image_dir:
+            logger.warning(f"  [SKIP] No images found in '{item}'.")
             continue
+        logger.info(f"  Image directory: {os.path.relpath(image_dir, workspace)}")
 
         # Step D: Replace original images with upscaled ones
         # Delete originals first to avoid name conflicts (upscaler outputs {stem}.jpg)
