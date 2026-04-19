@@ -253,7 +253,7 @@ def stage_fetch(logger, kobodl, downloads_dir, run_dir):
         _save_history(history)
         new_count += 1
 
-if new_count > 0:
+    if new_count > 0:
         logger.info(f"Downloaded {new_count} new file(s). Staging as .cbz...")
         # Walk recursively because kobodl nests files in kobo_downloads/
         for root, _dirs, files in os.walk(downloads_dir):
