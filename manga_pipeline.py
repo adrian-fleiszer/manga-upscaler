@@ -211,8 +211,7 @@ def stage_fetch(logger, kobodl, downloads_dir, run_dir):
     result = _run_subprocess(
         [kobodl, "book", "list"],
         logger=logger,
-        log_file=os.path.join(run_dir, "kobodl-list.log"),
-        console_output=True,
+        console_output=False,
     )
     if result.returncode != 0:
         logger.error(f"kobodl book list failed (exit {result.returncode})")
@@ -254,17 +253,19 @@ def stage_fetch(logger, kobodl, downloads_dir, run_dir):
         _save_history(history)
         new_count += 1
 
-    if new_count > 0:
+if new_count > 0:
         logger.info(f"Downloaded {new_count} new file(s). Staging as .cbz...")
-        for fname in os.listdir(downloads_dir):
-            if fname.endswith(".epub"):
-                old = os.path.join(downloads_dir, fname)
-                new_name = os.path.splitext(fname)[0] + ".cbz"
-                new = os.path.join(downloads_dir, new_name)
-                os.rename(old, new)
-                logger.info(f"  Staged: {new_name}")
+        # Walk recursively because kobodl nests files in kobo_downloads/
+        for root, _dirs, files in os.walk(downloads_dir):
+            for fname in files:
+                if fname.endswith(".epub"):
+                    old = os.path.join(root, fname)
+                    new_name = os.path.splitext(fname)[0] + ".cbz"
+                    new = os.path.join(downloads_dir, new_name)
+                    os.rename(old, new)
+                    logger.info(f"  Staged: {new_name}")
 
-        # Clean up stale kobo_downloads dir from old kobodl versions
+        # Clean up stale kobo_downloads dir (files already moved out above)
         kobo_dir = os.path.join(downloads_dir, "kobo_downloads")
         if os.path.exists(kobo_dir):
             shutil.rmtree(kobo_dir)
